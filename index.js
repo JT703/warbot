@@ -57,32 +57,33 @@ controller.hears(["^attack <@\\S+> ([1-9]|10)$"],["direct_message"],function(bot
 
       var messageTextParts = message.text.split(" ");
 
-      attackValue = messageTextParts[2];
-      attackerObj = getDMbyUserId(message.user);
+      attackValue = parseInt(messageTextParts[2]);
+      var tmpAttackerObj = getDMbyUserId(message.user);
       // Init attacking player's setup
-      if (!players[attackerObj.user]) {
-        players[attackerObj.user] = {
-          dm: attackerObj,
+      if (!players[tmpAttackerObj.user]) {
+        players[tmpAttackerObj.user] = {
+          dm: tmpAttackerObj,
           inventory: getNewInventory()
         };
       }
 
       var defenderId = messageTextParts[1].substring(2,messageTextParts[1].length - 1);
-      defenderObj = getDMbyUserId(defenderId);
+      var tmpDefenderObj = getDMbyUserId(defenderId);
       // Init defending player's setup
-      if (!players[defenderObj.user]) {
-        players[defenderObj.user] = {
-          dm: defenderObj,
+      if (!players[tmpDefenderObj.user]) {
+        players[tmpDefenderObj.user] = {
+          dm: tmpDefenderObj,
           inventory: getNewInventory()
         };
       }
 
-      var currentInventoryLevel = players[attackerObj.user].inventory[attackValue];
+      var currentInventoryLevel = players[tmpAttackerObj.user].inventory[attackValue];
       if (currentInventoryLevel > 0) {
         // Confirm attack
-        players[attackerObj.user].inventory[attackValue] = currentInventoryLevel--;
-        bot.reply(message,"OK. Attacking " + messageTextParts[1] + " with " + attackValue + ".\n" +
-                          currentInventoryLevel + " remaining.");
+        bot.reply(message,"OK. Attacking " + messageTextParts[1] + " with " + attackValue + ".");
+
+        defenderObj = tmpDefenderObj;
+        attackerObj = tmpAttackerObj;
 
         // Notify Defender
         notifyDefender();
@@ -114,17 +115,15 @@ controller.hears(["^defend ([0-9]|10)$"],["direct_message"],function(bot,message
 
   if (message.user == defenderObj.user) {
 
-    defenseValue = message.text.split(" ")[1];
+    defenseValue = parseInt(message.text.split(" ")[1]);
 
     var currentInventoryLevel = players[defenderObj.user].inventory[defenseValue];
     if (currentInventoryLevel > 0) {
       // Confirm attack
-      players[defenderObj.user].inventory[defenseValue] = currentInventoryLevel--;
-      bot.reply(message,"OK. Defended with " + defenseValue + ".\n" +
-                        currentInventoryLevel + " remaining.");
+      bot.reply(message,"OK. Defended with " + defenseValue + ".");
 
       // Notify Players of attack results
-      sendAttackResults();
+      setTimeout(sendAttackResults, 30000);
     } else {
       // Confirm attack
       bot.reply(message,"You have no remaining " + defenseValue + "'s left'.");
@@ -188,6 +187,14 @@ function sendAttackResults() {
                    "> defended with " + defenseValue + ".\n" +
                    "<@" + winner.user + "> wins this attack!";
 
+  if (wl.attackerWon) {
+    var currentInventoryLevel = players[defenderObj.user].inventory[defenseValue];
+    players[defenderObj.user].inventory[defenseValue] = --currentInventoryLevel;
+  } else {
+    var currentInventoryLevel = players[attackerObj.user].inventory[attackValue];
+    players[attackerObj.user].inventory[attackValue] = --currentInventoryLevel;
+  }
+
   // Tell Attacker results of the current attack
   bot.say({
     type: "message",
@@ -235,8 +242,6 @@ function sendAttackResults() {
 
   }
 
-
-
 }
 
 function getDMbyUserId(userId) {
@@ -250,25 +255,25 @@ function getDMbyUserId(userId) {
 function findWinnerLoser() {
 
   // Bomb scenarios
-  if (defenseValue == 0 && attackValue != 3) {
-    return {winner: defenderObj, loser: attackerObj};
+  if (defenseValue === 0 && attackValue !== 3) {
+    return {winner: defenderObj, loser: attackerObj, attackerWon: false};
   }
-  if (defenseValue == 0 && attackValue == 3) {
-    return {winner: attackerObj, loser: defenderObj};
+  if (defenseValue === 0 && attackValue === 3) {
+    return {winner: attackerObj, loser: defenderObj, attackerWon: true};
   }
 
   // Standard rank scenarios (1's beat 10's)
   if (attackValue >= defenseValue) {
-    if (attackValue == 10 && defenseValue == 1) {
-      return {winner: defenderObj, loser: attackerObj};
+    if (attackValue === 10 && defenseValue === 1) {
+      return {winner: defenderObj, loser: attackerObj, attackerWon: false};
     } else {
-      return {winner: attackerObj, loser: defenderObj};
+      return {winner: attackerObj, loser: defenderObj, attackerWon: true};
     }
   } else {
-    if (attackValue == 1 && defenseValue == 10) {
-      return {winner: attackerObj, loser: defenderObj};
+    if (attackValue === 1 && defenseValue === 10) {
+      return {winner: attackerObj, loser: defenderObj, attackerWon: true};
     } else {
-      return {winner: defenderObj, loser: attackerObj};
+      return {winner: defenderObj, loser: attackerObj, attackerWon: false};
     }
   }
 
@@ -290,18 +295,31 @@ function resetBattleground() {
 }
 
 function getNewInventory() {
+  // return [
+  //   3, // 0's bombs
+  //   1, // 1's
+  //   3, // 2's
+  //   3, // 3's
+  //   1, // 4's
+  //   1, // 5's
+  //   1, // 6's
+  //   1, // 7's
+  //   1, // 8's
+  //   1, // 9's
+  //   1, // 10's
+  // ];
   return [
-    3, // bombs
-    1, // 1's
-    3, // 2's
-    1, // 3's
-    1, // 4's
+    0, // 0's bombs
+    0, // 1's
+    0, // 2's
+    0, // 3's
+    0, // 4's
     1, // 5's
     1, // 6's
-    1, // 7's
-    1, // 8's
-    1, // 9's
-    1, // 10's
+    0, // 7's
+    0, // 8's
+    0, // 9's
+    0, // 10's
   ];
 }
 
